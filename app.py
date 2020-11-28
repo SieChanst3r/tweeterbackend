@@ -135,7 +135,7 @@ def queertrUsers():
             if(rows):
                 all_users_data = []
                 for row in rows:
-                    users_data = {
+                    user_data = {
                         "userId": row[4],
                         "email": row[5],
                         "username": row[0],
@@ -146,52 +146,120 @@ def queertrUsers():
                 return Response(json.dumps(all_users_data, default = str), mimetype = "application/json", status = 200)
             else:
                 return Response("Something went really wrong here, please try again..", mimetype = "text/html", status = 500)
-    # elif request.method == 'POST':
-    #     conn = None
-    #     cursor = None
-    #     users_email = request.json.get("email")
-    #     users_username = request.json.get("username")
-    #     users_password = request.json.get("password")
-    #     users_dob = request.json.get("DOB")
-    #     users_bio = request.json.get("bio")
-    #     rows = None
+    elif request.method == 'POST':
+        conn = None
+        cursor = None
+        user_email = request.json.get("email")
+        user_username = request.json.get("username")
+        user_password = request.json.get("password")
+        user_birthdate = request.json.get("birthdate")
+        user_bio = request.json.get("bio")
+        rows = None
 
-    #     try:
-    #         conn = mariadb.connect(host=dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
-    #         cursor = conn.cursor()
-    #         cursor.execute("INSERT INTO users(email, username, password, DOB, bio) VALUES (?, ?, ?, ?, ?)", [users_email, users_username, users_password, users_dob, users_bio])
-    #         rows = cursor.rowcount
+        try:
+            conn = mariadb.connect(host=dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO users(email, username, password, birthdate, bio) VALUES (?, ?, ?, ?, ?)", [users_email, users_username, users_password, users_birthdate, users_bio])
+            rows = cursor.rowcount
 
-    #     if(rows == 1):
-    #         loginTokin = secrets.token_hex(16)
-    #         user_id = cursor.lastrowid
-    #         print(loginTokin)
-    #         cursor.execute("INSERT INTO user_session()")
-    #         conn.commit()
-    #         rows= cursor.amount
-    #     except mariadb.ProgrammingError:
-    #         print("Something went wrong: Coding error ")        
-    #         # print(error)
-    #     except mariadb.OperationalError:
-    #         print("uh oh, an Connection error occurred!")
-    #     except mariadb.DatabaseError:
-    #         print("A Database error interrupted your QUEERTR experience.. oops")
-    #     finally:
-    #         if(cursor != None):
-    #             cursor.close()
-    #         if(conn != None):
-    #              conn.rollback()
-    #              conn.close()
-    #         if(rows == 1):
-    #             user_info = {
-    #                 "usersId": user_id,
-    #                 "email": users_email,
-    #                 "username": users_username,
-    #                 "bio": users_bio,
-    #                 "DOB": users_dob,
-    #                 "loginToken": loginToken
-    #             }
-    #              return Response(json.dumps(user_info, default=str), mimetype="application/json", status=201)
-    #         else:
-    #              return Response("Something went wrong!", mimetype="text/html", status=500)
+        if(rows == 1):
+            loginTokin = secrets.token_hex(16)
+            user_id = cursor.lastrowid
+            print(loginTokin)
+            cursor.execute("INSERT INTO user_session()")
+            conn.commit()
+            rows= cursor.amount
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(rows == 1):
+                user_data = {
+                    "userId": user_id,
+                    "email": user_email,
+                    "username": user_username,
+                    "bio": user_bio,
+                    "birthdate": user_birthdate,
+                    "loginToken": loginToken
+                }
+                 return Response(json.dumps(user_data, default=str), mimetype="application/json", status=201)
+            else:
+                 return Response("Something went wrong!", mimetype="text/html", status=500)
+    # UPDATE user info:
+    elif request.method == 'PATCH':
+        conn = None
+        cursor = None
+        rows = None
+        user_email = request.json.get("email")
+        user_username = request.json.get("username")
+        user_bio = request.json.get("bio")
+        user_birthdate = request.json.get("birthdate")
+        user_password = request.json.get("password")
+        loginTokin = request.json.get("loginToken")
+        try:
+            conn = mariadb.connect(host=dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()
+            cursor.execute("SELECT userId FROM user_session WHERE loginToken = ?", [loginTokin])
+            user_successful = cursor.fetchone()
+            if user_successful:
+                if(user_email != "" and user_email != None):
+                    cursor.execute("UPDATE users SET email = ? WHERE id = ?", [user_email, user_successful[0],])
+                if(username != "" and username != None):
+                    cursor.execute("UPDATE users SET username =? WHERE id = ?", [user_username, user_successful[0],])
+                if(user_bio != "" and user_bio != None):
+                    cursor.execute("UPDATE users SET bio =? WHERE id = ?", [user_bio, user_successful[0],])
+                if(user_birthdate != "" and user_birthdate != None):
+                    cursor.execute("UPDATE users SET birthdate = ? WHERE id = ?", [user_birthdate, user_successful[0],])
+                if(user_password != "" and user_password != None):
+                    cursor.execute("UPDATE users SET password = ? WHERE id =?", [user_password, user_successful[0],])
+                conn.commit()
+                rows = cursor.rowcount
+                cursor.execute("SELECT * FROM users WHERE id =?", [user_successful[0],])
+                user = cursor.fetchall()
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(rows == None):
+                user_data = {
+                    "userId": user_successful[0],
+                    "email": user[][],
+                    "username": user[][],
+                    "bio": user[][],
+                    "birthdate": user[][]
+                }
+                return Response(json.dumps(user_data, default=str), mimetype="text/html", status=200)
+            else:
+                return Response(json.dumps(user_data, default=str), mimetype="text/html", status=500)
+    # user DELETE:
+    elif request.method == 'DELETE':
+
  

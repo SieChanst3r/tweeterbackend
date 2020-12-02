@@ -479,4 +479,58 @@ def userTweets():
                 return Response("Very good, Your QUEERTR post has been deleted!", mimetype="text/html", status=204)
             else:
                 return Repsonse("Oh my, something did not go as planned here... attempt again please!", mimetype="text/html", status=500)
+# comments:
+# @app.route('/api/comments', methods=['GET', 'POST', 'PATCH', 'DELETE']) 
+# def commentsEndpoint():
+#     if request.method == 'GET':
+#         conn = None 
+#         cursor = None
+#         tweetId = request.args.get("tweetId")
+#         comment_content = None
+#         try:
+#             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+#             cursor = conn.cursor() 
+#             if tweetId != None and tweetId != "":
+#                 cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON comment.userId WHERE comment.tweetId = ?", [tweetId])
+#                 comment_content = cursor.fetchall()
+#             elif tweetId == None and tweetId != "":
+#                 cursor.execute("SELECT * FROM comment")
+#                 comment_content = cursor.fetchall()
+#             else:
+#                 return Response("Oh my, something did not go as planned here... attempt again please!", mimetype="text/html", status=200)
+#         except mariadb.ProgrammingError as error:
+#             print("Something went wrong: Coding error ")        
+#             print(error)
+#         except mariadb.OperationalError as error:
+#             print("uh oh, an Connection error occurred!")
+#             print(error)
+#         except mariadb.DatabaseError as error:
+#             print("A Database error interrupted your QUEERTR experience.. oops")
+#             print(error)
+#         except Exception as error:
+#             print(error)
+#         finally:
+#             if(cursor != None):
+#                 cursor.close()
+#             if(conn != None):
+#                  conn.rollback()
+#                  conn.close()
+#             if(comment_info != None):
+#                 comment_stuffs = []
+#                 for comment in comment_info:
+#                     comment_stuffs = {
+#                         "commentId": comment[2],
+#                         # how do you get the tweet id here???:
+#                         "tweetId": comment[0],
+#                         "userId": comment[1],
+#                         "username": comment[],
+#                         "content": comment[],
+#                         "createdAt": comment[]
+#                     }
+#                     all_tweets.append(users_tweets)
+#                 return Response(json.dumps(all_tweets, default = str), mimetype="application/json", status=200)
+#             else:
+#                 return Response("There was an error, please attempt this again shortly!", mimetype="text/html", status=500)
+
+    elif request.method == 'POST':            
 

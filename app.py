@@ -436,4 +436,47 @@ def userTweets():
                  conn.close()
             if(rows == 1):
                 #look at api documentation for this part:
-                 
+                 updated_tweet_stuffs = {
+                     "tweetId": updated_content[0][0],
+                     "content": updated_content[0][2]
+                 }
+                 return Response(json.dumps(updated_tweet_stuffs, default=str), mimetype="application/json", status=200)
+            else:
+                return Response("oops, something errored here, please try again QUEERTR", mimetype="text/html", status=500)
+    elif request.method == 'DELETE':
+        conn = None
+        cursor = None
+        rows = None
+        loginToken = request.json.get("loginToken")
+        tweetId = request.json.get('tweetId')
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor() 
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken,]")  
+            user = cursor.fetchall()
+            if user[0][1] == loginToken:
+                cursor.execute("DELETE FROM tweet WHERE loginToken = ?", [loginToken])
+                conn.commit()
+                rows = cursor.rowcount
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(rows == 1):
+                return Response("Very good, Your QUEERTR post has been deleted!", mimetype="text/html", status=204)
+            else:
+                return Repsonse("Oh my, something did not go as planned here... attempt again please!", mimetype="text/html", status=500)
+

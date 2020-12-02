@@ -311,5 +311,129 @@ def userTweets():
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
-            if userId != None and userId != "":          
- 
+            if userId != None and userId != "":
+                cursor.execute("SELECT t.id, t.userId, t.content, t.createdAt, u.username FROM tweet t INNER JOIN user u ON t.userId = u.id WHERE u.id = ?", [userId])
+            else:
+                cursor.execute("SELECT t.id, t.userId, t.content, t.createdAt, u.username FROM tweet t INNER JOIN user u ON t.userId = u.id")
+            cursor.fetchall()
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(rows != None):
+                all_tweets = []
+                for row in rows:
+                    users_tweets = {
+                        "tweetId": row[0],
+                        "userId": row[],
+                        "username": row[],
+                        "content": row[],
+                        "createdAt": row[]
+                    }
+                    all_tweets.append(users_tweets)
+                return Response(json.dumps(all_tweets, default = str), mimetype="application/json", status=200)
+            else:
+                return Response("There was an error, please attempt this again shortly!", mimetype="text/html", status=500)
+
+    elif request.method == 'POST':
+        conn = None
+        cursor = None
+        loginToken = request.json.get("loginToken")
+        tweet_content = request.json.get("content")
+        rows = None
+        tweetId = None
+        createdAt = datetime.datetime.now().strftime("%Y-%m-%d")
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()
+            cursor.execute("SELECT u.username, us.userId FROM user_session us INNER JOIN user u ON us.userId = u.id WHERE us.loginToken = ?", [loginToken,])
+            user = cursor.fetchall()
+            letter_length = len(tweet_content)
+            if letter_length <= 255 and len(user) == 1:
+                cursor.execute("INSERT INTO tweet(content, userId, createdAt) VALUES (?, ?, ?)", [tweet_content, user[0][0], createdAt])
+                conn.commit()
+                tweetId = cursor.lastrowid
+            else:
+                print("Max of 255 characters, Be carfeul QUEERTR!")
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(tweetId != None):
+                tweet_stuff = {
+                    "tweetId": tweetId,
+                    "userId": user[0][3],
+                    "username": user[0][0],
+                    "content": tweet_content,
+                    "createdAt": createdAt
+                }                
+                return Response(json.dumps(tweet_stuff, default=str), mimetype="application/json", status=201)
+            else:
+                return Response("Uh oh, something went wrong here, lets try that again QUEERTR", mimetype="text/html", status=500)
+    # PATCH request:
+    elif request.method == 'PATCH':
+        conn = None
+        cursor = None
+        row = None
+        tweetId = request.json.get("tweetId")
+        loginToken = request.json.get("loginToken")
+        tweet_content = request.json.get("content")
+        updated_tweet_stuffs = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()     
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken,])
+            user = cursor.fetchall()
+            # double bracket thing == confusion
+            if user[0][1] == loginToken:
+                cursor.execute("UPDATE tweet SET content = ? WHERE id =?", [tweet_content, tweetId])
+                conn.commit()
+            rows = cursor.rowcount
+            cursor.execute("SELECT * FROM tweet WHERE id=?", [tweetId])
+            updated_content = cursor.fetchall()
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(rows == 1):
+                #look at api documentation for this part:
+                 

@@ -1,8 +1,6 @@
 import mariadb
 from flask import Flask, request, Response
 from flask_cors import CORS
-# from flask_sqlalchemy import SQLAlchemy
-# from flask_bcrypt import Bcrypt
 import json
 import dbcreds
 import secrets
@@ -10,15 +8,6 @@ import secrets
 
 app = Flask(__name__)
 CORS(app)
-
-# from flask_wtf import FlaskForm
-# from wtforms import StringField , PasswordField , SubmitField , BooleanField
-# from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError
-
-# app.config['SECRET_KEY'] = '966a98e7b6fd851217f6f90db9f0e1da'
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database/user.db'
-# db = SQLAlchemy(app)
-# bcrypt = Bcrypt(app)
 
 # Login/Logout:
 @app.route('/api/login', methods=['POST', 'DELETE'])
@@ -928,4 +917,113 @@ def commentLikesEndpoint():
             if(rows != None):
                 return Response("Unliked!", mimetype="text/html", status=204)
             else:
-                return Response("Oops, something happened here and it did not work.. Please try again!", mimetype="text/html", status=500)                       
+                return Response("Oops, something happened here and it did not work.. Please try again!", mimetype="text/html", status=500)   
+
+    #Endpoint for follows (GET, POST, DELETE): 
+@app.route('/api/follows', method=['GET', 'POST', 'DELETE'])
+def followsEndpoint():
+    # GET follows method:
+    if request.method == 'GET':
+        conn = None
+        cursor = None
+        userId = request.args.get("userId")
+        follows = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()   
+            cursor.execute("SELECT f.followId, u.email, u.username, u.bio, u.birthdate FROM follow f INNER JOIN user u ON u.id = f.follow.id WHERE f.userId = ?", [userId,])
+            follows = cursor.fetchall()
+            print(follow)
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close() 
+            if(follows != None):
+                user_data = []
+                for follow in follows:
+                    user_following_info = {
+                        "userId": follow[1],
+                        "email": follow[5],
+                        "username": follow[0],
+                        "bio": follow[2],
+                        "birthdate": follow[1]
+                    }
+                    user_data.append(user_following_info)
+                return Response(json.dumps(user_data, default=str), mimetype="application/json", status=200)
+            else:
+                return Response("Something did not go right, try again!", mimetype="text/html", status=500)
+
+    elif request.method == 'POST':
+        conn = None
+        cursor = None
+        loginToken = request.json.get("loginToken")
+        followId = request.json.get("followId")
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor() 
+            cursor.execute("SELECT userId FROM user_session WHERE loginToken = ?", [loginToken,])
+            user_making_follow = cursor.fetchall()
+            if user_making_follow[0][0] == followId:
+                cursor.execute("INSERT INTO follow(followId, userId) VALUES(?, ?)", [followId, user_making_follow[0][0],])
+                conn.commit()
+                rows = cursor.fetchall()
+            else:
+                return Response("You can only follow other users.", mimetype="text/html", status=400)
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(rows == 1):
+                return Response("Followed user, very good!", mimetype="text/html", status=204)
+            else:
+                return Response("Something went wrong here, please try again shortly.", mimetype="text/html", status=500)
+
+    elif request.method == 'DELETE':
+        conn = None
+        cursor = None
+        loginToken = request.json.get("loginToken")
+        followId = request.json.get("followId")
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()          
+
+    # Endpoint for followers (GET, POST, DELETE):
+@app.route('/api/followers', methods=['GET', 'POST', 'DELETE'])
+def followersEndpoint():
+    # GET followers method:
+    if request.method == 'GET':
+        conn = None
+        cursor = None
+        userId = request.json.get("userId")
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor() 
+
+    
+    

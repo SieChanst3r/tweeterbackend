@@ -971,6 +971,7 @@ def followsEndpoint():
         cursor = None
         loginToken = request.json.get("loginToken")
         followId = request.json.get("followId")
+        rows = None
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
@@ -1009,21 +1010,82 @@ def followsEndpoint():
         cursor = None
         loginToken = request.json.get("loginToken")
         followId = request.json.get("followId")
+        rows = None
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
-            cursor = conn.cursor()          
+            cursor = conn.cursor()   
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken,])   
+            user_making_unfollow = cursor.fetchall()
+            if user_making_unfollow[0][4] == loginToken and user_making_unfollow[0][2] == followId:
+                cursor.execute("DELETE FROM follow WHERE userId = ? AND followId = ?", [user_making_unfollow[0][2], followId])
+                conn.commit()
+                rows = cursor.rowcount
+            else: 
+                return Response("Oops, something went wrong please try again!", mimetype="text/html", status=400)  
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(rows == 1):
+                return Response("Successfully unfollowed user!", mimetype="text/html", status=204)
+            else:
+                return Response("Something bad happened here, please try again!", mimetype="text/html", status=500)  
 
     # Endpoint for followers (GET, POST, DELETE):
-@app.route('/api/followers', methods=['GET', 'POST', 'DELETE'])
+@app.route('/api/followers', methods=['GET'])
 def followersEndpoint():
     # GET followers method:
     if request.method == 'GET':
         conn = None
         cursor = None
-        userId = request.json.get("userId")
+        userId = request.args.get("userId")
+        follower_info = None
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
-
-    
-    
+            cursor.execute("SELECT f.userId, u.email, u.username, u.bio, u.birthdate FROM follow f INNER JOIN user u ON u.id = f.userId WHERE f.followId = ?", [userId])
+            followers = cursor.fetchall()
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(followers != None):
+                follower_data = []
+                for follower in followers:
+                    follower_info = {
+                        "userId": follower[1],
+                        "email": follower[5],
+                        "username": follower[0],
+                        "bio": follower[2],
+                        "birthdate": follower[1]
+                    }
+                    follower_data.append(follower_info)
+                return Response(json.dumps(follower_data, default=str),  mimetype="application/json", status=200)
+            else:
+                return Response("Something went wrong, please try again!", mimetype="text/html", status=500)   

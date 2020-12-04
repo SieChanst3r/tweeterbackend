@@ -355,7 +355,7 @@ def userTweets():
         tweet_content = request.json.get("content")
         rows = None
         tweetId = None
-        createdAt = datetime.datetime.now().strftime("%Y-%m-%d")
+        createdAt = datetime.datetime.now().strftime("%Y-%M-%D")
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor()
@@ -480,57 +480,204 @@ def userTweets():
             else:
                 return Repsonse("Oh my, something did not go as planned here... attempt again please!", mimetype="text/html", status=500)
 # comments:
-# @app.route('/api/comments', methods=['GET', 'POST', 'PATCH', 'DELETE']) 
-# def commentsEndpoint():
-#     if request.method == 'GET':
-#         conn = None 
-#         cursor = None
-#         tweetId = request.args.get("tweetId")
-#         comment_content = None
-#         try:
-#             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
-#             cursor = conn.cursor() 
-#             if tweetId != None and tweetId != "":
-#                 cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON comment.userId WHERE comment.tweetId = ?", [tweetId])
-#                 comment_content = cursor.fetchall()
-#             elif tweetId == None and tweetId != "":
-#                 cursor.execute("SELECT * FROM comment")
-#                 comment_content = cursor.fetchall()
-#             else:
-#                 return Response("Oh my, something did not go as planned here... attempt again please!", mimetype="text/html", status=200)
-#         except mariadb.ProgrammingError as error:
-#             print("Something went wrong: Coding error ")        
-#             print(error)
-#         except mariadb.OperationalError as error:
-#             print("uh oh, an Connection error occurred!")
-#             print(error)
-#         except mariadb.DatabaseError as error:
-#             print("A Database error interrupted your QUEERTR experience.. oops")
-#             print(error)
-#         except Exception as error:
-#             print(error)
-#         finally:
-#             if(cursor != None):
-#                 cursor.close()
-#             if(conn != None):
-#                  conn.rollback()
-#                  conn.close()
-#             if(comment_info != None):
-#                 comment_stuffs = []
-#                 for comment in comment_info:
-#                     comment_stuffs = {
-#                         "commentId": comment[2],
-#                         # how do you get the tweet id here???:
-#                         "tweetId": comment[0],
-#                         "userId": comment[1],
-#                         "username": comment[],
-#                         "content": comment[],
-#                         "createdAt": comment[]
-#                     }
-#                     all_tweets.append(users_tweets)
-#                 return Response(json.dumps(all_tweets, default = str), mimetype="application/json", status=200)
-#             else:
-#                 return Response("There was an error, please attempt this again shortly!", mimetype="text/html", status=500)
+@app.route('/api/comments', methods=['GET', 'POST', 'PATCH', 'DELETE']) 
+def commentsEndpoint():
+    if request.method == 'GET':
+        conn = None 
+        cursor = None
+        tweetId = request.args.get("tweetId")
+        comment_content = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor() 
+            if tweetId != None and tweetId != "":
+                cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON comment.userId WHERE comment.tweetId = ?", [tweetId])
+                comment_content = cursor.fetchall()
+            elif tweetId == None and tweetId != "":
+                cursor.execute("SELECT * FROM comment")
+                comment_content = cursor.fetchall()
+            else:
+                return Response("Oh my, something did not go as planned here... attempt again please!", mimetype="text/html", status=200)
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                 conn.rollback()
+                 conn.close()
+            if(comment_info != None):
+                comment_stuffs = []
+                for comment in comment_info:
+                    comment_stuffs = {
+                        "commentId": comment[2],
+                        # how do you get the tweet id here???:
+                        "tweetId": comment[3],
+                        "userId": comment[0],
+                        "username": comment[5],
+                        "content": comment[4],
+                        "createdAt": comment[6]
+                    }
+                    all_tweets.append(users_tweets)
+                return Response(json.dumps(all_tweets, default = str), mimetype="application/json", status=200)
+            else:
+                return Response("There was an error, please attempt this again shortly!", mimetype="text/html", status=500)
 
-    elif request.method == 'POST':            
+    elif request.method == 'POST':  
+        conn = None 
+        cursor = None
+        tweetId = request.json.get("tweetId")
+        loginToken = request.json.get("loginToken")
+        comment_data = request.json.get("content")
+        createdAt = datetime.datetime.now().strftime("%Y-%M-%D")
+        recent_comment_userId = None
+        rows = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()             
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            user_new_comment = cursor.fetchall()
+            char_num = len(comment_data) 
+            rows = cursor.rowcount
+            if user_new_comment[0][4] == loginToken and char_num <= 150:
+                cursor.execute("INSERT INTO comment(content, tweetId, createdAt, userId) VALUES (?, ?, ?, ?)", [comment_content, createdAt, tweetId, user_new_comment[0][2]])     
+                recent_comment_userId = cursor.lastrowid
+                conn.commit()
+                rows = cursor.rowcount
+                cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON user.id = comment.userId WHERE comment.id =?", [recent_comment_userId,])
+                recent_comment_userId = cursor.fetchall()
+                return Response("Comment succesfully posted!", mimetype="text/html", status=201)
+            else: 
+                return Response("Error when posting comment, it needs to be at least 150 characters!", mimetype="text/html", status=400)    
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(rows == 1):
+                comment_info = {
+                    "commentId": recent_comment_userId,
+                    "tweetId": tweetId,
+                    "userId": user_new_comment[0][0]
+                    "username": recent_comment_userId[0][0]
+                }
+                return Response(json.dumps(comment_data, default=str), mimetype="application/json", status=200)
+            else:
+                return Reponse("Something did not go as planned here.. please try again.", mimetype="text/html", status=500)
+    # PATCH method:
+    elif request.method == 'PATCH':
+        conn = None
+        cursor = None
+        rows = None
+        loginToken = request.json.get("loginToken")
+        commentId = request.json.get("commentId")
+        comment_content = request.json.get("content")
+        createdAt = datetime.datetime.now(). strftime("%Y-%M-%D")
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken,])
+            user_updating_comment = cursor.fetchall()
+            cursor.execute("SELECT userId FROM comment WHERE id = ?", [commentId,])
+            comment_owner = cursor.fetchall()
+            if user_updating_comment[0][4] == loginToken and user_updating_comment[0][2] == comment_owner[0][0]:
+                cursor.execute("UPDATE comment SET content = ? WHERE id = ?", [comment_content, commentId])
+                conn.commit()
+                rows = cursor.rowcount
+            else:
+                return Response("Sorry, only the owner of this comment can alter the content.", mimetype="text/html", status=400)
+            if(rows != None):
+                cursor.execute("SELECT comment.*, user.username FROM user INNER JOIN comment ON user.id = comment.userId WHERE comment.id = ?", [commentId,])
+                user_new_comment = cursor.fetchall()
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(rows == 1):
+                comment_content = {
+                    "commentId": commentId,
+                    "tweetId": user_comment[0][3],
+                    "userId": user_comment[0][0]
+                    "username": user_comment[0][5],
+                    "content": comment_content,
+                    "createdAt": createdAt
 
+                }
+                return Repsonse(json.dumps(comment_content, default=str), mimetype="application/json", status=200)
+            else:
+                return Reponse("Oops, something went wrong here! Try again.", mimetype="text/html", status=500)
+    # DELETE Comment:
+    elif request.method == 'DELETE':
+        conn = None
+        cursor = None
+        loginToken = request.json.get("loginToken")
+        commentId = request.json.get("commentId")
+        rows = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            user_deleting_comment = cursor.fetchall()
+            cursor.execute("SELECT userId FROM comment WHERE id = ?", [commentId,])
+            comment_owner = cursor.fetchall()
+            if user_deleting_comment[0][4] == loginToken and user_deleting_comment[0][2] == comment_owner[0][0]:
+                cursor.execute("DELETE FROM comment WHERE id = ?", [commentId,])
+                conn.commit()
+                rows = cursor.rowcount
+            else:
+                return Response("You are not authorized to delete this comment, sorry.", mimetype="text/html", status=400)
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(rows != None):
+                return Response("Comment deleted!", mimetype="text/html", status=204)
+            else:
+                return Reponse("Something went bad here, we should try again!", mimetype="text/html", status=500)

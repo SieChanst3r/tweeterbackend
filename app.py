@@ -487,7 +487,117 @@ def tweetLikesEndpoint():
     if request.method == 'GET':
         conn = None
         cursor = None
-        
+        tweetId = request.args.get("tweetId")
+        likes = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor() 
+            cursor.execute("SELECT tweet_like.tweet_id, tweet_like.user_id, user.username FROM tweet_like INNER JOIN user ON user.id = tweet_like.user_id WHERE tweet_like.tweet_id = ?", [tweetId])
+            likes = cursor.fetchall()     
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()
+            if(likes != None):
+                user_data = []
+                for like in likes:
+                    likes_info = {
+                        "tweetId": like[2],
+                        "userId": like[1],
+                        "username": like[0]
+                    }  
+                    user_data.append(likes_info)
+                return Response(json.dumps(user_data, default=str), mimetype="application/json", status=200)
+            else:
+                return Response("Something went wrong here, please try again!", mimetype="text/html", status=500)   
+    #POST tweet-like method:
+    elif request.method == 'POST':
+        conn = None
+        cursor = None
+        loginToken = request.json.get("loginToken")
+        tweetId = request.json.get("tweetId")
+        rows = None
+        try:
+            conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
+            cursor = conn.cursor()   
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            user_liking = cursor.fetchall()
+            if user_liking[0][1] == loginToken:
+                cursor.execute("INSERT INTO tweet_like(tweet_id, user_id) VALUES(?, ?)", [tweet_id, user_liking[0][1],])
+                conn.commit()
+                rows = cursor.fetchall()
+            else:
+                return Response("There was an error! Please try again.", mimetype="text/html", status=400)
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close()      
+            if(rows != None):
+                return Response("Tweet liked, very good!", mimetype="text/html", status=201)
+            else:
+                return Response("Something went terribly wrong here, try again shortly.", mimetype="text/html", status=500)
+
+    #DELETE tweet like method:
+    elif request.method == 'DELETE':
+        conn = None
+        cursor = None
+        loginToken = request.json.get("loginToken")
+        tweetId = request.json.get("tweetId")
+        rows = None
+        if user_unliking [0][1] == loginToken:
+            cursor.execute("DELETE FROM tweet_like WHERE tweet_id = ?", [tweet_id, user_unliking[0][2]])
+            print(user_unliking)
+            conn.commit()
+            rows = cursor.fetchall()
+        else:
+            return Response("There was an error, please try again.", mimetype="text/html", status=400)
+        except mariadb.ProgrammingError as error:
+            print("Something went wrong: Coding error ")        
+            print(error)
+        except mariadb.OperationalError as error:
+            print("uh oh, an Connection error occurred!")
+            print(error)
+        except mariadb.DatabaseError as error:
+            print("A Database error interrupted your QUEERTR experience.. oops")
+            print(error)
+        except Exception as error:
+            print(error)
+        finally:
+            if(cursor != None):
+                cursor.close()
+            if(conn != None):
+                conn.rollback()
+                conn.close() 
+            if(rows != None):
+                return Response("Tweet unliked, very good!", mimetype="text/html", status=204)
+            else:
+                return Response("Something went wrong, please try again.", mimetype="text/html", status=500)
 
 # comments methods:
 @app.route('/api/comments', methods=['GET', 'POST', 'PATCH', 'DELETE']) 
@@ -594,7 +704,7 @@ def commentsEndpoint():
                 }
                 return Response(json.dumps(comment_data, default=str), mimetype="application/json", status=200)
             else:
-                return Reponse("Something did not go as planned here.. please try again.", mimetype="text/html", status=500)
+                return Response("Something did not go as planned here.. please try again.", mimetype="text/html", status=500)
     # PATCH comments method:
     elif request.method == 'PATCH':
         conn = None
@@ -649,7 +759,7 @@ def commentsEndpoint():
                 }
                 return Repsonse(json.dumps(comment_content, default=str), mimetype="application/json", status=200)
             else:
-                return Reponse("Oops, something went wrong here! Try again.", mimetype="text/html", status=500)
+                return Response("Oops, something went wrong here! Try again.", mimetype="text/html", status=500)
     # DELETE Comment:
     elif request.method == 'DELETE':
         conn = None
@@ -690,7 +800,7 @@ def commentsEndpoint():
             if(rows != None):
                 return Response("Comment deleted!", mimetype="text/html", status=204)
             else:
-                return Reponse("Something went bad here, we should try again!", mimetype="text/html", status=500)
+                return Response("Something went bad here, we should try again!", mimetype="text/html", status=500)
 
 @app.route('/api/comment-likes', methods=['GET', 'POST', 'DELETE'])
 def commentLikesEndpoint():
@@ -773,7 +883,7 @@ def commentLikesEndpoint():
                 conn.rollback()
                 conn.close()
             if(rows != None):
-                return Reponse("Liked!", mimetype="text/html", status=201)
+                return Response("Liked!", mimetype="text/html", status=201)
             else:
                 return Response("Something went wrong here..", mimetype="text/html", status=500)
     # DELETE Comment_like:

@@ -3,6 +3,7 @@ from flask import Flask, request, Response
 from flask_cors import CORS
 import json
 import dbcreds
+import datetime
 import secrets
 
 
@@ -151,13 +152,13 @@ def queertrUsers():
             cursor.execute("INSERT INTO user(email, username, password, birthdate, bio) VALUES (?, ?, ?, ?, ?)", [user_email, user_username, user_password, user_birthdate, user_bio])
             rows = cursor.rowcount
 
-        if(rows == 1):
-            loginToken = secrets.token_hex(16)
-            user_id = cursor.lastrowid
-            print(loginToken)
-            cursor.execute("INSERT INTO user_session()")
-            conn.commit()
-            rows= cursor.amount
+            if(rows == 1):
+                loginToken = secrets.token_hex(16)
+                user_id = cursor.lastrowid
+                print(loginToken)
+                cursor.execute("INSERT INTO user_session()")
+                conn.commit()
+                rows= cursor.amount
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -185,9 +186,9 @@ def queertrUsers():
                     "birthdate": user_birthdate,
                     "loginToken": loginToken
                 }
-                 return Response(json.dumps(user_data, default=str), mimetype="application/json", status=201)
+                return Response(json.dumps(user_data, default=str), mimetype="application/json", status=201)
             else:
-                 return Response("Something went wrong!", mimetype="text/html", status=500)
+                return Response("Something went wrong!", mimetype="text/html", status=500)
     # UPDATE user info:
     elif request.method == 'PATCH':
         conn = None
@@ -237,7 +238,7 @@ def queertrUsers():
             if(conn != None):
                  conn.rollback()
                  conn.close()
-            if(rows == None):
+            if(rows == 1):
                 # do the below have to match table names as well as accessing the correct array and row????
                 user_data = {
                     "userId": user_successful[0],
@@ -326,11 +327,11 @@ def userTweets():
                 all_tweets = []
                 for row in rows:
                     users_tweets = {
-                        "tweetId": row[0],
-                        "userId": row[],
-                        "username": row[],
-                        "content": row[],
-                        "createdAt": row[]
+                        "tweetId": row[4],
+                        "userId": row[0],
+                        "username": row[0],
+                        "content": row[2],
+                        "createdAt": row[3]
                     }
                     all_tweets.append(users_tweets)
                 return Response(json.dumps(all_tweets, default = str), mimetype="application/json", status=200)
@@ -442,7 +443,7 @@ def userTweets():
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
-            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken,]")  
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])  
             user = cursor.fetchall()
             if user[0][1] == loginToken:
                 cursor.execute("DELETE FROM tweet WHERE loginToken = ?", [loginToken])
@@ -559,13 +560,14 @@ def tweetLikesEndpoint():
         loginToken = request.json.get("loginToken")
         tweetId = request.json.get("tweetId")
         rows = None
-        if user_unliking [0][1] == loginToken:
-            cursor.execute("DELETE FROM tweet_like WHERE tweet_id = ?", [tweet_id, user_unliking[0][2]])
-            print(user_unliking)
-            conn.commit()
-            rows = cursor.fetchall()
-        else:
-            return Response("There was an error, please try again.", mimetype="text/html", status=400)
+        try:
+            if user_unliking [0][1] == loginToken:
+                cursor.execute("DELETE FROM tweet_like WHERE tweet_id = ?", [tweet_id, user_unliking[0][2]])
+                print(user_unliking)
+                conn.commit()
+                rows = cursor.fetchall()
+            else:
+                return Response("There was an error, please try again.", mimetype="text/html", status=400)
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -688,7 +690,7 @@ def commentsEndpoint():
                 comment_info = {
                     "commentId": recent_comment_userId,
                     "tweetId": tweetId,
-                    "userId": user_new_comment[0][0]
+                    "userId": user_new_comment[0][0],
                     "username": recent_comment_userId[0][0]
                 }
                 return Response(json.dumps(comment_data, default=str), mimetype="application/json", status=200)
@@ -740,7 +742,7 @@ def commentsEndpoint():
                 comment_content = {
                     "commentId": commentId,
                     "tweetId": user_comment[0][3],
-                    "userId": user_comment[0][0]
+                    "userId": user_comment[0][0],
                     "username": user_comment[0][5],
                     "content": comment_content,
                     "createdAt": createdAt
@@ -920,7 +922,7 @@ def commentLikesEndpoint():
                 return Response("Oops, something happened here and it did not work.. Please try again!", mimetype="text/html", status=500)   
 
     #Endpoint for follows (GET, POST, DELETE): 
-@app.route('/api/follows', method=['GET', 'POST', 'DELETE'])
+@app.route('/api/follows', methods=['GET', 'POST', 'DELETE'])
 def followsEndpoint():
     # GET follows method:
     if request.method == 'GET':

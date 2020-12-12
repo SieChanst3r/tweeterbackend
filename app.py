@@ -29,7 +29,7 @@ def queertrLoginOut():
             rows = cursor.rowcount
             if(rows == 1):
                 loginToken = secrets.token_hex(16)
-                cursor.execute("INSERT INTO user_session(userId, loginToken) VALUES(?, ?)", [user[0][0], loginToken])
+                cursor.execute("INSERT INTO user_session(userId, loginToken) VALUES(?, ?)", [user[0][3], loginToken])
                 conn.commit()
         except Exception as error:
             print(error)
@@ -49,7 +49,15 @@ def queertrLoginOut():
                  conn.rollback()
                  conn.close()
             if(rows == 1):
-                return Response("Login success!", mimetype = "text/html", status=201)
+                user_data = {
+                    "userId": user[0][1],
+                    "email": user[0][4],
+                    "username": user[0][0],
+                    "bio": user[0][2],
+                    "birthdate": user[0][1],
+                    "loginToken": loginToken
+                }
+                return Response(json.dumps(user_data, default = str), mimetype = "application/json", status=201)
             else:
                 return Response("Something went really wrong here, try again..", mimetype="text/html", status=500)
     # Logout:
@@ -136,6 +144,7 @@ def queertrUsers():
                 return Response(json.dumps(all_user_data, default = str), mimetype = "application/json", status = 200)
             else:
                 return Response("Something went really wrong here, please try again..", mimetype = "text/html", status = 500)
+    # NEW USER SIGNUP:
     elif request.method == 'POST':
         conn = None
         cursor = None
@@ -145,20 +154,20 @@ def queertrUsers():
         user_birthdate = request.json.get("birthdate")
         user_bio = request.json.get("bio")
         rows = None
-
+        user = None
         try:
             conn = mariadb.connect(host=dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO user(email, username, password, birthdate, bio) VALUES (?, ?, ?, ?, ?)", [user_email, user_username, user_password, user_birthdate, user_bio])
+            cursor.execute("INSERT INTO user(username, birthdate, email, bio, password) VALUES (?, ?, ?, ?, ?)", [ user_username, user_birthdate, user_email, user_bio, user_password])
+            conn.commit()
             rows = cursor.rowcount
 
-            if(rows == 1):
+            if rows == 1:
                 loginToken = secrets.token_hex(16)
-                user_id = cursor.lastrowid
-                print(loginToken)
-                cursor.execute("INSERT INTO user_session()")
+                userId = cursor.lastrowid
+                cursor.execute("INSERT INTO user_session(userId, loginToken) VALUES(?, ?)", [userId, loginToken])
                 conn.commit()
-                rows= cursor.amount
+                rows = cursor.rowcount
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -170,7 +179,6 @@ def queertrUsers():
             print(error)
         except Exception as error:
             print(error)
-
         finally:
             if(cursor != None):
                 cursor.close()
@@ -179,7 +187,7 @@ def queertrUsers():
                  conn.close()
             if(rows == 1):
                 user_data = {
-                    "userId": user_id,
+                    "userId": userId,
                     "email": user_email,
                     "username": user_username,
                     "bio": user_bio,
@@ -199,7 +207,7 @@ def queertrUsers():
         user_bio = request.json.get("bio")
         user_birthdate = request.json.get("birthdate")
         user_password = request.json.get("password")
-        loginTokin = request.json.get("loginToken")
+        loginToken = request.json.get("loginToken")
         try:
             conn = mariadb.connect(host=dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor()
@@ -305,7 +313,7 @@ def userTweets():
                 cursor.execute("SELECT t.id, t.userId, t.content, t.createdAt, u.username FROM tweet t INNER JOIN user u ON t.userId = u.id WHERE u.id = ?", [userId])
             else:
                 cursor.execute("SELECT t.id, t.userId, t.content, t.createdAt, u.username FROM tweet t INNER JOIN user u ON t.userId = u.id")
-            cursor.fetchall()
+            rows = cursor.fetchall()
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -327,9 +335,9 @@ def userTweets():
                 all_tweets = []
                 for row in rows:
                     users_tweets = {
-                        "tweetId": row[4],
-                        "userId": row[0],
-                        "username": row[0],
+                        "tweetId": row[0],
+                        "userId": row[1],
+                        "username": row[4],
                         "content": row[2],
                         "createdAt": row[3]
                     }
@@ -352,12 +360,12 @@ def userTweets():
             cursor.execute("SELECT u.username, us.userId FROM user_session us INNER JOIN user u ON us.userId = u.id WHERE us.loginToken = ?", [loginToken,])
             user = cursor.fetchall()
             letter_length = len(tweet_content)
-            if letter_length <= 255 and len(user) == 1:
+            if letter_length <= 200 and len(user) == 1:
                 cursor.execute("INSERT INTO tweet(content, userId, createdAt) VALUES (?, ?, ?)", [tweet_content, user[0][0], createdAt])
                 conn.commit()
                 tweetId = cursor.lastrowid
             else:
-                print("Max of 255 characters, Be carfeul QUEERTR!")
+                print("Max of 200 characters, Be carfeul QUEERTR!")
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -482,7 +490,7 @@ def tweetLikesEndpoint():
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
-            cursor.execute("SELECT tweet_like.tweet_id, tweet_like.user_id, user.username FROM tweet_like INNER JOIN user ON user.id = tweet_like.user_id WHERE tweet_like.tweet_id = ?", [tweetId])
+            cursor.execute("SELECT tweet_like.tweetId, tweet_like.user_id, user.username FROM tweet_like INNER JOIN user ON user.id = tweet_like.user_id WHERE tweet_like.tweetId = ?", [tweetId])
             likes = cursor.fetchall()     
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
@@ -525,12 +533,9 @@ def tweetLikesEndpoint():
             cursor = conn.cursor()   
             cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
             user_liking = cursor.fetchall()
-            if user_liking[0][1] == loginToken:
-                cursor.execute("INSERT INTO tweet_like(tweet_id, user_id) VALUES(?, ?)", [tweet_id, user_liking[0][1],])
-                conn.commit()
-                rows = cursor.fetchall()
-            else:
-                return Response("There was an error! Please try again.", mimetype="text/html", status=400)
+            cursor.execute("INSERT INTO tweet_like(tweetId, user_id) VALUES(?, ?)", [tweetId, user_liking[0][1],])
+            conn.commit()
+            rows = cursor.rowcount
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -602,7 +607,7 @@ def commentsEndpoint():
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
             if tweetId != None and tweetId != "":
-                cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON comment.userId WHERE comment.tweetId = ?", [tweetId])
+                cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON comment.userId = user.id WHERE comment.tweetId = ?", [tweetId])
                 comment_content = cursor.fetchall()
             elif tweetId == None and tweetId != "":
                 cursor.execute("SELECT * FROM comment")
@@ -626,20 +631,20 @@ def commentsEndpoint():
             if(conn != None):
                  conn.rollback()
                  conn.close()
-            if(comment_info != None):
+            if(comment_content != None):
                 comment_stuffs = []
-                for comment in comment_info:
-                    comment_stuffs = {
-                        "commentId": comment[2],
+                for comment in comment_content:
+                    comment_stuff = {
+                        "commentId": comment[0],
                         # how do you get the tweet id here???:
-                        "tweetId": comment[3],
-                        "userId": comment[0],
+                        "tweetId": comment[1],
+                        "userId": comment[4],
                         "username": comment[5],
-                        "content": comment[4],
-                        "createdAt": comment[6]
+                        "content": comment[2],
+                        "createdAt": comment[3]
                     }
-                    all_tweets.append(users_tweets)
-                return Response(json.dumps(all_tweets, default = str), mimetype="application/json", status=200)
+                    comment_stuffs.append(comment_stuff)
+                return Response(json.dumps(comment_stuffs, default = str), mimetype="application/json", status=200)
             else:
                 return Response("There was an error, please attempt this again shortly!", mimetype="text/html", status=500)
     # POST for comments:
@@ -651,21 +656,23 @@ def commentsEndpoint():
         comment_data = request.json.get("content")
         createdAt = datetime.datetime.now().strftime("%Y-%M-%D")
         recent_comment_userId = None
+        commenter = None
         rows = None
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor()             
             cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
-            user_new_comment = cursor.fetchall()
+            userId_new_comment = cursor.fetchall()
             char_num = len(comment_data) 
             rows = cursor.rowcount
-            if user_new_comment[0][4] == loginToken and char_num <= 150:
-                cursor.execute("INSERT INTO comment(content, tweetId, createdAt, userId) VALUES (?, ?, ?, ?)", [comment_content, createdAt, tweetId, user_new_comment[0][2]])     
+            print(userId_new_comment)
+            if char_num <= 150:
+                cursor.execute("INSERT INTO comment(content, tweetId, createdAt, userId) VALUES (?, ?, ?, ?)", [comment_data, tweetId, createdAt, userId_new_comment[0][1]])     
                 recent_comment_userId = cursor.lastrowid
                 conn.commit()
                 rows = cursor.rowcount
-                cursor.execute("SELECT comment.*, user.username FROM comment INNER JOIN user ON user.id = comment.userId WHERE comment.id =?", [recent_comment_userId,])
-                recent_comment_userId = cursor.fetchall()
+                cursor.execute("SELECT  user.username, comment.* FROM comment INNER JOIN user ON user.id = comment.userId WHERE comment.id =?", [recent_comment_userId,])
+                commenter = cursor.fetchall()
                 return Response("Comment succesfully posted!", mimetype="text/html", status=201)
             else: 
                 return Response("Error when posting comment, it needs to be at least 150 characters!", mimetype="text/html", status=400)    
@@ -690,8 +697,8 @@ def commentsEndpoint():
                 comment_info = {
                     "commentId": recent_comment_userId,
                     "tweetId": tweetId,
-                    "userId": user_new_comment[0][0],
-                    "username": recent_comment_userId[0][0]
+                    "userId": userId_new_comment[0][1],
+                    "username": commenter[0][0]
                 }
                 return Response(json.dumps(comment_data, default=str), mimetype="application/json", status=200)
             else:
@@ -799,7 +806,7 @@ def commentLikesEndpoint():
     if request.method == 'GET':
         conn = None
         cursor = None
-        commentId = request.json.get("commentId")
+        commentId = request.args.get("commentId")
         likes = None
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
@@ -827,9 +834,9 @@ def commentLikesEndpoint():
                 user_data = []
                 for like in likes:
                     likes_info = {
-                        "commentId": like[4],
-                        "userId": like[3],
-                        "username": like[0]
+                        "commentId": like[0],
+                        "userId": like[1],
+                        "username": like[2]
                     }  
                     user_data.append(likes_info)
                 return Response(json.dumps(user_data, default=str), mimetype="application/json", status=200)
@@ -848,12 +855,9 @@ def commentLikesEndpoint():
             cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
             user_liking = cursor.fetchall()
             # print(user_liking) 
-            if user_liking[0][3] == loginToken:
-                cursor.execute("INSERT INTO comment_like(commentId, userId) VALUES(?, ?)", [commentId, user_liking[0][3]])
-                conn.commit()
-                rows = cursor.rowcount
-            else:
-                return Response("There was an Error, try again!", mimetype="text/html", status=400)
+            cursor.execute("INSERT INTO comment_like(commentId, userId) VALUES(?, ?)", [commentId, user_liking[0][1]])
+            conn.commit()
+            rows = cursor.rowcount
             cursor.execute("SELECT comment_like.*, user.username FROM comment_like INNER JOIN user ON user.id = comment_like.userId WHERE comment_like.commentId = ?", [commentId,])
             likes = cursor.fetchall()
         except mariadb.ProgrammingError as error:
@@ -893,12 +897,9 @@ def commentLikesEndpoint():
             cursor.execute("SELECT userId FROM comment_like WHERE commentId = ?", [commentId])
             like_owner = cursor.fetchall()
             # print(like_owner)
-            if user_unliking[0][3] == loginToken:
-                cursor.execute("DELETE FROM comment_like WHERE commentId = ? AND userId = ?", [commentId, user_unliking])
-                conn.commit()
-                rows = cursor.rowcount
-            else:
-                return Response("You cannot unlike something that isn't yours!", mimetype="text/html", status=400)
+            cursor.execute("DELETE FROM comment_like WHERE commentId = ? AND userId = ?", [commentId, user_unliking[0][1]])
+            conn.commit()
+            rows = cursor.rowcount
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
@@ -957,11 +958,11 @@ def followsEndpoint():
                 user_data = []
                 for follow in follows:
                     user_following_info = {
-                        "userId": follow[1],
-                        "email": follow[5],
-                        "username": follow[0],
-                        "bio": follow[2],
-                        "birthdate": follow[1]
+                        "userId": follow[0],
+                        "email": follow[1],
+                        "username": follow[2],
+                        "bio": follow[3],
+                        "birthdate": follow[4]
                     }
                     user_data.append(user_following_info)
                 return Response(json.dumps(user_data, default=str), mimetype="application/json", status=200)
@@ -974,17 +975,18 @@ def followsEndpoint():
         loginToken = request.json.get("loginToken")
         followId = request.json.get("followId")
         rows = None
+        # user_making_follow = None
         try:
             conn = mariadb.connect(host = dbcreds.host, password=dbcreds.password, user=dbcreds.user, port=dbcreds.port, database=dbcreds.database)
             cursor = conn.cursor() 
             cursor.execute("SELECT userId FROM user_session WHERE loginToken = ?", [loginToken,])
             user_making_follow = cursor.fetchall()
-            if user_making_follow[0][0] == followId:
-                cursor.execute("INSERT INTO follow(followId, userId) VALUES(?, ?)", [followId, user_making_follow[0][0],])
-                conn.commit()
-                rows = cursor.fetchall()
-            else:
-                return Response("You can only follow other users.", mimetype="text/html", status=400)
+            cursor.execute("INSERT INTO follow(followId, userId) VALUES(?, ?)", [followId, user_making_follow[0][1],])
+            conn.commit()
+            rows = cursor.rowcount
+            print(user_making_follow)
+            # else:
+            #     return Response("You can only follow other users.", mimetype="text/html", status=400)
         except mariadb.ProgrammingError as error:
             print("Something went wrong: Coding error ")        
             print(error)
